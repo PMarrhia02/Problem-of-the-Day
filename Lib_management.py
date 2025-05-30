@@ -1,166 +1,205 @@
+from typing import List, Optional
+
+
 class Book:
-    """
-    A mutable class to represent a book in the library.
-    """
+    """A class to represent a book in the library system."""
 
-    def __init__(self, title: str, author: str, genre: str, available: bool =True):
-        """
-        Initialize a Book object.
+    def __init__(self, title: str, author: str, genre: str, available: bool = True) -> None:
+        """Initialize a Book instance.
 
-        Parameters:
-        title (str): The title of the book.
-        author (str): The name of the book's writer.
-        genre (str): Genre of the book.
-        available (bool): Whether the book is available (default is True).
+        Args:
+            title: Title of the book.
+            author: Author of the book.
+            genre: Genre of the book.
+            available: Availability status (default: True).
         """
         self.title = title
         self.author = author
         self.genre = genre
         self.available = available
 
-    def __str__(self):
-        """
-        Return a string with the book representation.
+    def __str__(self) -> str:
+        """Return string representation of the book.
 
         Returns:
-        str: Details of the book and its availability status.
+            Formatted string with book details.
         """
         status = "Available" if self.available else "Borrowed"
-        return f"'{self.title}' by {self.author} - Genre: {self.genre} [{status}]"
+        return f"{self.title} by {self.author} | {self.genre} | {status}"
 
 
 class BookNotFoundException(Exception):
-    """
-    Raised when a book is not found in the library.
-    """
+    """Exception raised when a book is not found."""
     pass
 
 
 class BookAlreadyBorrowedException(Exception):
-    """
-    Raised when a book is already borrowed.
-    """
+    """Exception raised when a book is already borrowed."""
     pass
 
 
 class Library:
-    """
-    A class to manage a collection of books in a library.
-    """
+    """A class to manage library book operations."""
 
-    def __init__(self):
-        """
-        Initialize the library with an empty book list.
-        """
-        self.books = []
+    def __init__(self, books: Optional[List[Book]] = None) -> None:
+        """Initialize the library with optional list of books.
 
-    def add_book(self, book):
+        Args:
+            books: Optional initial list of books.
         """
-        Add a new book to the library.
+        self.books = books or []
 
-        Parameters:
-        book (Book): The book to be added.
-        """
-        self.books.append(book)
+    def search_books(self, field: str, keyword: str) -> List[Book]:
+        """Search books by field (title/author/genre).
 
-    def search_books(self, keyword):
-        """
-        Search for books by title, author, or genre.
-
-        Parameters:
-        keyword (str): The keyword to search for.
+        Args:
+            field: Attribute to search ('title', 'author', or 'genre').
+            keyword: Search term.
 
         Returns:
-        list of Book: List of books that match the keyword.
+            List of matching Book objects.
         """
         keyword = keyword.lower()
-        found = [book for book in self.books if
-                 keyword in book.title.lower() or
-                 keyword in book.author.lower() or
-                 keyword in book.genre.lower()]
-        return found
+        return [
+            book for book in self.books
+            if keyword in getattr(book, field).lower()
+        ]
 
-    def borrow_book(self, title):
-        """
-        Borrow a book from the library by title.
+    def borrow_book(self, title: str) -> str:
+        """Borrow a book by title.
 
-        Parameters:
-        title (str): The title of the book to borrow.
+        Args:
+            title: Title of book to borrow.
 
         Returns:
-        str: Confirmation message.
+            Confirmation message.
 
         Raises:
-        BookAlreadyBorrowedException: If the book is already borrowed.
-        BookNotFoundException: If the book does not exist in the library.
+            BookNotFoundException: If book doesn't exist.
+            BookAlreadyBorrowedException: If book is already borrowed.
+        """
+        book = self._find_book(title)
+        if not book.available:
+            raise BookAlreadyBorrowedException(f"'{title}' is already borrowed.")
+        book.available = False
+        return f"You borrowed '{title}'."
+
+    def return_book(self, title: str) -> str:
+        """Return a borrowed book.
+
+        Args:
+            title: Title of book to return.
+
+        Returns:
+            Confirmation message.
+
+        Raises:
+            BookNotFoundException: If book doesn't exist.
+        """
+        book = self._find_book(title)
+        if book.available:
+            return f"'{title}' was not borrowed."
+        book.available = True
+        return f"You returned '{title}'."
+
+    def _find_book(self, title: str) -> Book:
+        """Find a book by title (case-insensitive).
+
+        Args:
+            title: Title to search for.
+
+        Returns:
+            The matching Book object.
+
+        Raises:
+            BookNotFoundException: If no match found.
         """
         for book in self.books:
             if book.title.lower() == title.lower():
-                if not book.available:
-                    raise BookAlreadyBorrowedException(f"'{title}' is already borrowed.")
-                book.available = False
-                return f"You've successfully borrowed '{title}'"
-        raise BookNotFoundException(f"Book titled '{title}' not found.")
+                return book
+        raise BookNotFoundException(f"'{title}' not found.")
 
-    def return_book(self, title):
-        """
-        Return a book to the library by title.
 
-        Parameters:
-        title (str): The title of the book to return.
+def display_menu() -> None:
+    """Display the main menu options."""
+    print("\n1. Search Book\n2. Borrow Book\n3. Return Book\n4. Exit")
 
-        Returns:
-        str: Confirmation message.
 
-        Raises:
-        BookNotFoundException: If the book does not exist in the library.
-        """
-        for book in self.books:
-            if book.title.lower() == title.lower():
-                book.available = True
-                return f"'{title}' has been returned."
-        raise BookNotFoundException(f"Book titled '{title}' not found.")
+def get_search_field(option: str) -> Optional[str]:
+    """Map menu option to book attribute.
 
+    Args:
+        option: User's menu choice.
+
+    Returns:
+        Corresponding book attribute or None if invalid.
+    """
+    return {
+        '1': 'title',
+        '2': 'author',
+        '3': 'genre'
+    }.get(option)
+
+
+def main() -> None:
+    """Run the library management system."""
+    # Initialize library with sample books
+    library = Library([
+        Book("The Silent Patient", "Alex Michaelides", "Thriller"),
+        Book("Atomic Habits", "James Clear", "Self-help", False),
+        Book("Sapiens", "Yuval Noah Harari", "History"),
+        Book("Educated", "Tara Westover", "Memoir", False),
+        Book("The Midnight Library", "Matt Haig", "Fantasy"),
+        Book("Ikigai", "Héctor García", "Philosophy"),
+        Book("The Psychology of Money", "Morgan Housel", "Finance", False),
+        Book("The Subtle Art of Not Giving a F*ck", "Mark Manson", "Self-help"),
+        Book("Becoming", "Michelle Obama", "Biography", False),
+        Book("The Lean Startup", "Eric Ries", "Business")
+    ])
+
+    print("Welcome to the Library Book Management System")
+    
+    while True:
+        display_menu()
+        choice = input("Enter choice: ").strip()
+
+        if choice == '1':
+            print("Search by:\n1. Title\n2. Author\n3. Genre")
+            opt = input("Enter option: ").strip()
+            field = get_search_field(opt)
+            if not field:
+                print("Invalid option.")
+                continue
+
+            keyword = input("Enter keyword: ").strip()
+            results = library.search_books(field, keyword)
+            if not results:
+                print("No matching books found.")
+            else:
+                for book in results:
+                    print(book)
+
+        elif choice == '2':
+            title = input("Enter book title to borrow: ").strip()
+            try:
+                print(library.borrow_book(title))
+            except (BookNotFoundException, BookAlreadyBorrowedException) as e:
+                print(f"Error: {e}")
+
+        elif choice == '3':
+            title = input("Enter book title to return: ").strip()
+            try:
+                print(library.return_book(title))
+            except BookNotFoundException as e:
+                print(f"Error: {e}")
+
+        elif choice == '4':
+            print("Exiting program. Thank you.")
+            break
+
+        else:
+            print("Invalid choice. Try again.")
 
 
 if __name__ == "__main__":
-    library = Library()
-
-    # Adding some books
-    library.add_book(Book("The Maze Runner", "James Dashner", "Classic"))
-    library.add_book(Book("Pride and Prejudice", "Jane Auston", "Classic"))
-    library.add_book(Book("The God of small things", "Arundati Roy", "Indian fiction"))
-    library.add_book(Book("Data Science 101", "Jane Doe", "Education"))
-
-    # Search books
-    print("\n Search for 'classic':")
-    for book in library.search_books("classic"):
-        print(book)
-
-    # Borrow a book
-    try:
-        print("\n Borrowing 'Pride and Prejudice':")
-        print(library.borrow_book("Pride and Prejudice"))
-    except Exception as e:
-        print("Error:", e)
-
-    # Try borrowing again
-    try:
-        print("\n Borrowing 'Pride and Prejudice:")
-        print(library.borrow_book("Pride and Prejudice"))
-    except Exception as e:
-        print("Error:", e)
-
-    # Return the book
-    try:
-        print("\n Returning 'Pride and Prejudice':")
-        print(library.return_book("Pride and Prejudice"))
-    except Exception as e:
-        print("Error:", e)
-
-    # Try to borrow a non-existing book
-    try:
-        print("\n Borrowing 'Nonexistent Book':")
-        print(library.borrow_book("Nonexistent Book"))
-    except Exception as e:
-        print("Error:", e)
+    main()
